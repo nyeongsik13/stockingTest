@@ -690,7 +690,6 @@ async function execution(userId, companyId, orderId, type, quantity, price) {
           // console.log(`Execution time: ${endTime - startTime} ms`);
           // sendToClient(userId, notices);
           sendToAllClient(notices);
-          sendT;
           return '주문이 완료되었습니다.';
           //종결
         }
