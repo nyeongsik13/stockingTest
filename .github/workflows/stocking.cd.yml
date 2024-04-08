@@ -45,3 +45,8 @@ jobs:
           --build-arg KAKAO_ID="${{ secrets.KAKAO_ID }}" \
           --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" \
         docker push your-username/your-app:latest
+
+    # EC2 인스턴스에 SSH로 접속하여 Docker 이미지 배포
+    - name: Deploy Docker image to EC2 instance
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ${{ secrets.SSH_PRIVATE_KEY }} ec2-user@your-ec2-instance-public-ip "docker pull your-username/your-app:latest && docker-compose up -d"
