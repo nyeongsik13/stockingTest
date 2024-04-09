@@ -67,7 +67,7 @@ jobs:
           docker login -u AWS -p $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           
           # 이미지 가져오기
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
+          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
           # 현재 실행 중인 모든 컨테이너 중지
           sudo docker stop $(docker ps -a -q)
           
@@ -78,7 +78,7 @@ jobs:
           sudo docker rmi $(docker images -q)
           
           # 컨테이너 실행
-          sudo docker run -d --name trello -p 3000:3000  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
+          sudo docker run -d --name stocking -p 3000:3000  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
           
           # 실행된 컨테이너 확인
           sudo docker ps -a
