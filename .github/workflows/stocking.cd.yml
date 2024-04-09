@@ -32,25 +32,25 @@ jobs:
       env:
         IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/your-app:latest
       run: |
-        docker build -t $IMAGE_URI \
-          --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }} \
-          --build-arg DATABASE_HOST=${{ secrets.DATABASE_HOST }} \ 
-          --build-arg DATABASE_PORT=${{ secrets.DATABASE_PORT }} \
-          --build-arg DATABASE_NAME=${{ secrets.DATABASE_NAME }} \
-          --build-arg DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }} \ 
-          --build-arg DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }} \
-          --build-arg PORT=${{ secrets.PORT }} \
-          --build-arg appKey=${{ secrets.APPKey }} \ 
-          --build-arg secreKey=${{ secrets.secretKey }} \ 
-          --build-arg SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }} \ 
-          --build-arg USER=${{ secrets.USER }} \
-          --build-arg PASS=${{ secrets.PASS }} \
-          --build-arg JWT_SECRET=${{ secrets.JWT_SECRET }} \
-          --build-arg GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }} \
-          --build-arg GOOGLE_ID=${{ secrets.GOOGLE_ID }} \
-          --build-arg NAVER_ID=${{ secrets.NAVER_ID }} \
-          --build-arg NAVER_SECRET=${{ secrets.NAVER_SECRET }} \
-          --build-arg KAKAO_ID=${{ secrets.KAKAO_ID }} \
+        docker build -t $IMAGE_URI\
+          --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }}\
+          --build-arg DATABASE_HOST=${{ secrets.DATABASE_HOST }}\ 
+          --build-arg DATABASE_PORT=${{ secrets.DATABASE_PORT }}\
+          --build-arg DATABASE_NAME=${{ secrets.DATABASE_NAME }}\
+          --build-arg DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}\ 
+          --build-arg DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}\
+          --build-arg PORT=${{ secrets.PORT }}\
+          --build-arg appKey=${{ secrets.APPKey }}\ 
+          --build-arg secreKey=${{ secrets.secretKey }}\ 
+          --build-arg SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}\ 
+          --build-arg USER=${{ secrets.USER }}\
+          --build-arg PASS=${{ secrets.PASS }}\
+          --build-arg JWT_SECRET=${{ secrets.JWT_SECRET }}\
+          --build-arg GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}\
+          --build-arg GOOGLE_ID=${{ secrets.GOOGLE_ID }}\
+          --build-arg NAVER_ID=${{ secrets.NAVER_ID }}\
+          --build-arg NAVER_SECRET=${{ secrets.NAVER_SECRET }}\
+          --build-arg KAKAO_ID=${{ secrets.KAKAO_ID }}\
           --build-arg BACKEND_URL=${{ secrets.BACKEND_URL }} .
         docker push $IMAGE_URI
 
