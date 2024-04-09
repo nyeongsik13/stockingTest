@@ -64,7 +64,7 @@ jobs:
         port: 22                                # SSH 포트 번호 (기본값은 22)
         script: |
           # 이미지 가져오기
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+          sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
           # 현재 실행 중인 모든 컨테이너 중지
           sudo docker stop $(docker ps -a -q)
           
