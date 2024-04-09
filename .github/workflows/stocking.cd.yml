@@ -13,6 +13,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Print OS information
+      run: |
+        uname -a
+        cat /etc/os-release
+
+    - name: Check Docker and AWS CLI installation
+      run: |
+        docker --version
+        aws --version
+
+    - name: Print environment variables
+      run: |
+        printenv
+
+
+
+
+
     # AWS Credentials 설정
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
