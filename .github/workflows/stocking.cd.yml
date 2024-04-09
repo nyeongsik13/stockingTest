@@ -63,6 +63,9 @@ jobs:
         username: ${{ secrets.EC2USER }}   # EC2 인스턴스에 접속할 사용자 이름
         port: 22                                # SSH 포트 번호 (기본값은 22)
         script: |
+          # AWS ECR에 로그인
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          
           # 이미지 가져오기
           sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
           # 현재 실행 중인 모든 컨테이너 중지
