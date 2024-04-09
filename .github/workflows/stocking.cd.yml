@@ -33,6 +33,7 @@ jobs:
         IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
       run: |
         docker buildx build -t $IMAGE_URI\
+          -f ../../Dockerfile \
           --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }}\
           --build-arg DATABASE_HOST=${{ secrets.DATABASE_HOST }}\ 
           --build-arg DATABASE_PORT=${{ secrets.DATABASE_PORT }}\
