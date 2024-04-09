@@ -73,7 +73,8 @@ jobs:
         port: 22                                # SSH 포트 번호 (기본값은 22)
         script: |
           # AWS ECR에 로그인
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          PASSWORD=$(aws ecr get-login-password --region ap-northeast-2)
+          docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com <<< $PASSWORD
           
           # 이미지 가져오기
           sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
