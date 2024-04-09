@@ -40,8 +40,8 @@ jobs:
           --build-arg DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}\ 
           --build-arg DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}\
           --build-arg PORT=${{ secrets.PORT }}\
-          --build-arg appKey=${{ secrets.APPKey }}\ 
-          --build-arg secreKey=${{ secrets.secretKey }}\ 
+          --build-arg appKey=${{ secrets.APPKEY }}\ 
+          --build-arg secreKey=${{ secrets.SECRETKEY }}\ 
           --build-arg SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}\ 
           --build-arg USER=${{ secrets.USER }}\
           --build-arg PASS=${{ secrets.PASS }}\
