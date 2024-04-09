@@ -15,6 +15,9 @@ jobs:
 
     - name: Check AWS CLI version
       run: aws --version
+      
+    - name: Set AWS CLI path
+      run: export PATH=$PATH:/usr/local/bin/aws
 
 
     # AWS Credentials 설정
