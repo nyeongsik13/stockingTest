@@ -32,7 +32,7 @@ jobs:
       env:
         IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/your-app:latest
       run: >
-        docker build . -t $IMAGE_URI 
+        docker build -t $IMAGE_URI . 
           --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" 
           --build-arg DATABASE_HOST="${{ secrets.DATABASE_HOST }}" 
           --build-arg DATABASE_PORT="${{ secrets.DATABASE_PORT }}" 
