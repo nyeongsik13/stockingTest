@@ -55,7 +55,9 @@ jobs:
           docker push $IMAGE_URI
       
 
-    # EC2 인스턴스에 SSH로 접속하여 Docker 이미지 배포
     - name: Deploy Docker image to EC2 instance
       run: |
-        ssh -o StrictHostKeyChecking=no -i ${{ secrets.SSH_PRIVATE_KEY }} ${{secrets.EC2USER}}@${{secrets.PUBLICIP}} "docker pull $IMAGE_URI && docker-compose up -d"
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key
+        chmod 600 ssh_key
+        ssh -o StrictHostKeyChecking=no -i ssh_key ${{secrets.EC2USER}}@${{secrets.PUBLICIP}} "docker pull $IMAGE_URI && docker-compose up -d"
+        rm -f ssh_key
