@@ -55,9 +55,37 @@ jobs:
           docker push $IMAGE_URI
       
 
-    - name: Deploy Docker image to EC2 instance
-      run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key
-        chmod 600 ssh_key
-        ssh -o StrictHostKeyChecking=no -i ssh_key ${{secrets.EC2USER}}@${{secrets.PUBLICIP}} "docker pull $IMAGE_URI && docker-compose up -d"
-        rm -f ssh_key
+    - name: SSH into EC2 instance and restart Docker container
+      uses: appleboy/ssh-action@master
+      with:
+        key: ${{ secrets.REMOTE_PRIVATE_KEY }}  # EC2 인스턴스에 접속하기 위한 개인 키파일
+        host: ${{ secrets.PUBLICIP }}           # EC2 인스턴스의 호스트 주소
+        username: ${{ secrets.EC2USER }}   # EC2 인스턴스에 접속할 사용자 이름
+        port: 22                                # SSH 포트 번호 (기본값은 22)
+        script: |
+          # AWS ECR에 로그인
+          docker login -u AWS -p $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) ${{ steps.login-ecr.outputs.registry }}
+          
+          # 이미지 가져오기
+          docker pull ${{ steps.login-ecr.outputs.registry }}/trello:latest
+          
+          # 현재 실행 중인 모든 컨테이너 중지
+          sudo docker stop $(docker ps -a -q)
+          
+          # 중지된 모든 컨테이너 삭제
+          sudo docker rm $(docker ps -a -q)
+          
+          # 이미지 삭제
+          sudo docker rmi $(docker images -q)
+          
+          # 컨테이너 실행
+          sudo docker run -d --name trello -p 3000:3000 ${{ steps.login-ecr.outputs.registry }}/trello:latest
+          
+          # 실행된 컨테이너 확인
+          sudo docker ps -a
+          
+          # 사용하지 않는 리소스 정리
+          sudo docker system prune -a -f
+          
+          # 사용되지 않는 이미지 삭제
+          sudo docker images
