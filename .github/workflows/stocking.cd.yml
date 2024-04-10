@@ -80,25 +80,25 @@ jobs:
         port: 22                                # SSH 포트 번호 (기본값은 22)
         script: |
           # AWS ECR에 로그인
-          docker login -u AWS -p $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}
-          sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
           # 현재 실행 중인 모든 컨테이너 중지
-          sudo docker stop $(docker ps -a -q)
+          docker stop $(docker ps -a -q)
           
           # 중지된 모든 컨테이너 삭제
-          sudo docker rm $(docker ps -a -q)
+          docker rm $(docker ps -a -q)
           
           # 이미지 삭제
-          sudo docker rmi $(docker images -q)
+          docker rmi $(docker images -q)
           
           # 컨테이너 실행
-          sudo docker run -d --name stocking -p 3000:3000  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
-          
+          docker run -d --name stocking -p 3000:3000  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+
           # 실행된 컨테이너 확인
-          sudo docker ps -a
+          docker ps -a
           
           # 사용하지 않는 리소스 정리
-          sudo docker system prune -a -f
+          docker system prune -a -f
           
           # 사용되지 않는 이미지 삭제
-          sudo docker images
+          docker images
