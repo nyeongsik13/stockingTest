@@ -49,14 +49,14 @@ ENV DATABASE_URL=$DATABASE_URL \
 WORKDIR /app
 
 # 외부 패키지 설치를 위해 package.json과 yarn.lock 파일 복사
-COPY package.json .
-COPY yarn.lock .
+COPY main/package.json .
+COPY main/yarn.lock .
 
 # 앱을 실행하기 위해 필요한 모듈을 설치합니다.
 RUN yarn install
 
 # 프로젝트 파일을 Docker 컨테이너의 작업 디렉토리로 복사합니다.
-COPY . .
+COPY main .
 
 ADD     . /app
 RUN yarn prisma generate --schema=./main/prisma/schema.prisma
