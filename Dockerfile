@@ -59,7 +59,7 @@ RUN yarn install
 COPY . .
 
 ADD     . /app
-RUN yarn prisma generate
+RUN yarn prisma generate --schema=./main/prisma/schema.prisma
 # 하기 포트를 외부로 노출합니다.
 
 # 앱을 실행합니다.
