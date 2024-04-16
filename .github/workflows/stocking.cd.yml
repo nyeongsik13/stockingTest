@@ -122,20 +122,23 @@ jobs:
         script: |
           sudo apt update
           sudo apt install nginx -y
-          echo "http {
-              upstream blue_backend {
-                  server ${{ secrets.PUBLICIP }}:3000;
-              }
-              upstream green_backend {
-                  server ${{ secrets.PUBLICIP2 }}:3000;
-              }
-              server {
-                  listen 80;
-                  location / {
-                      proxy_pass http://blue_backend;
-                  }
-              }
-          }" | sudo tee /etc/nginx/nginx.conf
+          echo "events {
+            worker_connections 1024;  # 예시 값, 필요에 따라 조정 가능
+          }  
+          http {
+                upstream blue_backend {
+                    server ${{ secrets.PUBLICIP }}:3000;
+                }
+                upstream green_backend {
+                    server ${{ secrets.PUBLICIP2 }}:3000;
+                }
+                server {
+                    listen 80;
+                    location / {
+                        proxy_pass http://blue_backend;
+                    }
+                }
+            }" | sudo tee /etc/nginx/nginx.conf
 
     - name: Deploy to Blue or Green environment on Instance 2
       uses: appleboy/ssh-action@master
