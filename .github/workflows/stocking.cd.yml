@@ -35,8 +35,26 @@ jobs:
       env:
         IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
       run: |
-        docker build -t $IMAGE_URI .
-        docker push $IMAGE_URI
+          docker build -t $IMAGE_URI \
+            --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --build-arg DATABASE_HOST="${{ secrets.DATABASE_HOST }}" \
+            --build-arg DATABASE_PORT="${{ secrets.DATABASE_PORT }}" \
+            --build-arg DATABASE_NAME="${{ secrets.DATABASE_NAME }}" \
+            --build-arg DATABASE_USERNAME="${{ secrets.DATABASE_USERNAME }}" \
+            --build-arg DATABASE_PASSWORD="${{ secrets.DATABASE_PASSWORD }}" \
+            --build-arg PORT="${{ secrets.PORT }}" \
+            --build-arg appKey="${{ secrets.APPKEY }}" \
+            --build-arg secretKey="${{ secrets.SECRETKEY }}" \
+            --build-arg USER="${{ secrets.USER }}" \
+            --build-arg PASS="${{ secrets.PASS }}" \
+            --build-arg JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --build-arg GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
+            --build-arg GOOGLE_ID="${{ secrets.GOOGLE_ID }}" \
+            --build-arg NAVER_ID="${{ secrets.NAVER_ID }}" \
+            --build-arg NAVER_SECRET="${{ secrets.NAVER_SECRET }}" \
+            --build-arg KAKAO_ID="${{ secrets.KAKAO_ID }}" \
+            --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
+          docker push $IMAGE_URI
 
     - name: Install Nginx on Instance 1
       uses: appleboy/ssh-action@master
@@ -48,33 +66,47 @@ jobs:
         script: |
           sudo apt update
           sudo apt install nginx -y
+          echo "http {
+              upstream blue_backend {
+                  server ${{ secrets.PUBLICIP }}:3000;
+              }
+              upstream green_backend {
+                  server ${{ secrets.PUBLICIP2 }}:3000;
+              }
+              server {
+                  listen 80;
+                  location / {
+                      proxy_pass http://blue_backend;
+                  }
+              }
+          }" | sudo tee /etc/nginx/nginx.conf
 
     - name: Deploy to Blue or Green environment on Instance 1
       uses: appleboy/ssh-action@master
       with:
-        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
-        host: ${{ secrets.PUBLICIP }}
-        username: ${{ secrets.EC2USER }}
-        port: 22
-        script: |
-          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-
-          CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
-
-          if [ "$CURRENT_BACKEND" == "blue" ]; then
-            NEW_BACKEND="green"
-          else
-            NEW_BACKEND="blue"
-          fi
-
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo systemctl restart nginx"
-
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker stop my-app-$CURRENT_BACKEND"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker rm my-app-$CURRENT_BACKEND"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker system prune -a -f"
+            key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+            host: ${{ secrets.PUBLICIP }}
+            username: ${{ secrets.EC2USER }}
+            port: 22
+            script: |
+              echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+              docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+    
+              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)')
+    
+              if [ "$CURRENT_BACKEND" == "blue" ]; then
+                NEW_BACKEND="green"
+              else
+                NEW_BACKEND="blue"
+              fi
+    
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo systemctl restart nginx"
+    
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker stop my-app-$CURRENT_BACKEND"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker rm my-app-$CURRENT_BACKEND"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker system prune -a -f"
 
     - name: Install Nginx on Instance 2
       uses: appleboy/ssh-action@master
@@ -86,30 +118,44 @@ jobs:
         script: |
           sudo apt update
           sudo apt install nginx -y
+          echo "http {
+              upstream blue_backend {
+                  server ${{ secrets.PUBLICIP }}:3000;
+              }
+              upstream green_backend {
+                  server ${{ secrets.PUBLICIP2 }}:3000;
+              }
+              server {
+                  listen 80;
+                  location / {
+                      proxy_pass http://blue_backend;
+                  }
+              }
+          }" | sudo tee /etc/nginx/nginx.conf
 
     - name: Deploy to Blue or Green environment on Instance 2
       uses: appleboy/ssh-action@master
       with:
-        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
-        host: ${{ secrets.PUBLICIP2 }}
-        username: ${{ secrets.EC2USER }}
-        port: 22
-        script: |
-          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-
-          CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
-
-          if [ "$CURRENT_BACKEND" == "blue" ]; then
-            NEW_BACKEND="green"
-          else
-            NEW_BACKEND="blue"
-          fi
-
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo systemctl restart nginx"
-
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker stop my-app-$CURRENT_BACKEND"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker rm my-app-$CURRENT_BACKEND"
-          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker system prune -a -f"
+            key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+            host: ${{ secrets.PUBLICIP2 }}
+            username: ${{ secrets.EC2USER }}
+            port: 22
+            script: |
+              echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+              docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+    
+              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)')
+    
+              if [ "$CURRENT_BACKEND" == "blue" ]; then
+                NEW_BACKEND="green"
+              else
+                NEW_BACKEND="blue"
+              fi
+    
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo systemctl restart nginx"
+    
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker stop my-app-$CURRENT_BACKEND"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker rm my-app-$CURRENT_BACKEND"
+              ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker system prune -a -f"
