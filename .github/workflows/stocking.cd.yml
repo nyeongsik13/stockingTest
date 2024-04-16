@@ -38,6 +38,17 @@ jobs:
         docker build -t $IMAGE_URI .
         docker push $IMAGE_URI
 
+    - name: Install Nginx on Instance 1
+      uses: appleboy/ssh-action@master
+      with:
+        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+        host: ${{ secrets.PUBLICIP }}
+        username: ${{ secrets.EC2USER }}
+        port: 22
+        script: |
+          sudo apt update
+          sudo apt install nginx -y
+
     - name: Deploy to Blue or Green environment on Instance 1
       uses: appleboy/ssh-action@master
       with:
@@ -73,6 +84,18 @@ jobs:
 
           # 사용하지 않는 리소스 정리
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker system prune -a -f"
+
+    - name: Install Nginx on Instance 2
+      uses: appleboy/ssh-action@master
+      with:
+        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+        host: ${{ secrets.PUBLICIP2 }}
+        username: ${{ secrets.EC2USER }}
+        port: 22
+        script: |
+          sudo apt update
+          sudo apt install nginx -y
+
 
     - name: Deploy to Blue or Green environment on Instance 2
       uses: appleboy/ssh-action@master
