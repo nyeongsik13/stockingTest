@@ -92,7 +92,7 @@ jobs:
               echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
               docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
     
-              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)')
+              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }}  "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
     
               if [ "$CURRENT_BACKEND" == "blue" ]; then
                 NEW_BACKEND="green"
@@ -144,8 +144,7 @@ jobs:
               echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
               docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
     
-              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)')
-    
+              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
               if [ "$CURRENT_BACKEND" == "blue" ]; then
                 NEW_BACKEND="green"
               else
