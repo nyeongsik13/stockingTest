@@ -52,37 +52,28 @@ jobs:
     - name: Deploy to Blue or Green environment on Instance 1
       uses: appleboy/ssh-action@master
       with:
-        key: ${{ secrets.REMOTE_PRIVATE_KEY }}  # EC2 인스턴스에 접속하기 위한 개인 키파일
-        host: ${{ secrets.PUBLICIP }}           # 첫 번째 EC2 인스턴스의 호스트 주소
-        username: ${{ secrets.EC2USER }}         # EC2 인스턴스에 접속할 사용자 이름
+        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+        host: ${{ secrets.PUBLICIP }}
+        username: ${{ secrets.EC2USER }}
         port: 22
         script: |
-          # ECR 로그인 및 이미지 풀
           echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-          # 현재 배포 중인 환경 확인
           CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
 
-          # 블루-그린 전환
           if [ "$CURRENT_BACKEND" == "blue" ]; then
             NEW_BACKEND="green"
           else
             NEW_BACKEND="blue"
           fi
 
-          # Nginx 설정 업데이트 및 재시작
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo systemctl restart nginx"
 
-          # 새로운 컨테이너 실행
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-
-          # 기존 컨테이너 중지 및 삭제
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker stop my-app-$CURRENT_BACKEND"
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker rm my-app-$CURRENT_BACKEND"
-
-          # 사용하지 않는 리소스 정리
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker system prune -a -f"
 
     - name: Install Nginx on Instance 2
@@ -96,39 +87,29 @@ jobs:
           sudo apt update
           sudo apt install nginx -y
 
-
     - name: Deploy to Blue or Green environment on Instance 2
       uses: appleboy/ssh-action@master
       with:
-        key: ${{ secrets.REMOTE_PRIVATE_KEY }}  # EC2 인스턴스에 접속하기 위한 개인 키파일
-        host: ${{ secrets.PUBLICIP2 }}           # 두 번째 EC2 인스턴스의 호스트 주소
-        username: ${{ secrets.EC2USER }}         # EC2 인스턴스에 접속할 사용자 이름
+        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+        host: ${{ secrets.PUBLICIP2 }}
+        username: ${{ secrets.EC2USER }}
         port: 22
         script: |
-          # ECR 로그인 및 이미지 풀
           echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-          # 현재 배포 중인 환경 확인
           CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
 
-          # 블루-그린 전환
           if [ "$CURRENT_BACKEND" == "blue" ]; then
             NEW_BACKEND="green"
           else
             NEW_BACKEND="blue"
           fi
 
-          # Nginx 설정 업데이트 및 재시작
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo systemctl restart nginx"
 
-          # 새로운 컨테이너 실행
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-
-          # 기존 컨테이너 중지 및 삭제
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker stop my-app-$CURRENT_BACKEND"
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker rm my-app-$CURRENT_BACKEND"
-
-          # 사용하지 않는 리소스 정리
           ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker system prune -a -f"
