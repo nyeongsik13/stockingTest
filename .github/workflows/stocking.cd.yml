@@ -1,4 +1,4 @@
-name: Continuous Deployment to AWS ECR
+name: Continuous Blue-Green Deployment to AWS ECR
 
 on:
   push:
@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 체크아웃 스텝
     - name: Checkout code
       uses: actions/checkout@v2
 
@@ -19,8 +18,6 @@ jobs:
     - name: Set AWS CLI path
       run: export PATH=$PATH:/usr/local/bin/aws
 
-
-    # AWS Credentials 설정
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -28,77 +25,87 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    # ECR에 로그인
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
       with:
         mask-password: 'true'
-    
+
     - name: Build, tag, and push image to Amazon ECR
       env:
         IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
       run: |
-          docker build -t $IMAGE_URI \
-            --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            --build-arg DATABASE_HOST="${{ secrets.DATABASE_HOST }}" \
-            --build-arg DATABASE_PORT="${{ secrets.DATABASE_PORT }}" \
-            --build-arg DATABASE_NAME="${{ secrets.DATABASE_NAME }}" \
-            --build-arg DATABASE_USERNAME="${{ secrets.DATABASE_USERNAME }}" \
-            --build-arg DATABASE_PASSWORD="${{ secrets.DATABASE_PASSWORD }}" \
-            --build-arg PORT="${{ secrets.PORT }}" \
-            --build-arg appKey="${{ secrets.APPKEY }}" \
-            --build-arg secretKey="${{ secrets.SECRETKEY }}" \
-            --build-arg SLACK_WEBHOOK_URL="${{ secrets.SLACK_WEBHOOK_URL }}" \
-            --build-arg USER="${{ secrets.USER }}" \
-            --build-arg PASS="${{ secrets.PASS }}" \
-            --build-arg JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-            --build-arg GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
-            --build-arg GOOGLE_ID="${{ secrets.GOOGLE_ID }}" \
-            --build-arg NAVER_ID="${{ secrets.NAVER_ID }}" \
-            --build-arg NAVER_SECRET="${{ secrets.NAVER_SECRET }}" \
-            --build-arg KAKAO_ID="${{ secrets.KAKAO_ID }}" \
-            --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
-          docker push $IMAGE_URI
-      
+        docker build -t $IMAGE_URI .
+        docker push $IMAGE_URI
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-
-
-
-    - name: SSH into EC2 instance and restart Docker container
+    - name: Deploy to Blue or Green environment on Instance 1
       uses: appleboy/ssh-action@master
       with:
         key: ${{ secrets.REMOTE_PRIVATE_KEY }}  # EC2 인스턴스에 접속하기 위한 개인 키파일
-        host: ${{ secrets.PUBLICIP }}           # EC2 인스턴스의 호스트 주소
-        username: ${{ secrets.EC2USER }}   # EC2 인스턴스에 접속할 사용자 이름
-        port: 22                                # SSH 포트 번호 (기본값은 22)
+        host: ${{ secrets.PUBLICIP }}           # 첫 번째 EC2 인스턴스의 호스트 주소
+        username: ${{ secrets.EC2USER }}         # EC2 인스턴스에 접속할 사용자 이름
+        port: 22
         script: |
-          # AWS ECR에 로그인
+          # ECR 로그인 및 이미지 풀
           echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-          # 현재 실행 중인 모든 컨테이너 중지
-          docker stop $(docker ps -a -q)
-          
-          # 중지된 모든 컨테이너 삭제
-          docker rm $(docker ps -a -q)
-          
-          # 이미지 삭제
-          docker rmi $(docker images -q)
-          
-          # 컨테이너 실행
-          docker run -d --name stocking -p 3000:3000  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-          # 실행된 컨테이너 확인
-          docker ps -a
-          
+          # 현재 배포 중인 환경 확인
+          CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
+
+          # 블루-그린 전환
+          if [ "$CURRENT_BACKEND" == "blue" ]; then
+            NEW_BACKEND="green"
+          else
+            NEW_BACKEND="blue"
+          fi
+
+          # Nginx 설정 업데이트 및 재시작
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "sudo systemctl restart nginx"
+
+          # 새로운 컨테이너 실행
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
+
+          # 기존 컨테이너 중지 및 삭제
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker stop my-app-$CURRENT_BACKEND"
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker rm my-app-$CURRENT_BACKEND"
+
           # 사용하지 않는 리소스 정리
-          docker system prune -a -f
-          
-          # 사용되지 않는 이미지 삭제
-          docker images
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "docker system prune -a -f"
+
+    - name: Deploy to Blue or Green environment on Instance 2
+      uses: appleboy/ssh-action@master
+      with:
+        key: ${{ secrets.REMOTE_PRIVATE_KEY }}  # EC2 인스턴스에 접속하기 위한 개인 키파일
+        host: ${{ secrets.PUBLICIP2 }}           # 두 번째 EC2 인스턴스의 호스트 주소
+        username: ${{ secrets.EC2USER }}         # EC2 인스턴스에 접속할 사용자 이름
+        port: 22
+        script: |
+          # ECR 로그인 및 이미지 풀
+          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+
+          # 현재 배포 중인 환경 확인
+          CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "cat /etc/nginx/nginx.conf | grep -oP '(?<=include \/etc\/nginx\/sites-enabled\/).*(?=;)'")
+
+          # 블루-그린 전환
+          if [ "$CURRENT_BACKEND" == "blue" ]; then
+            NEW_BACKEND="green"
+          else
+            NEW_BACKEND="blue"
+          fi
+
+          # Nginx 설정 업데이트 및 재시작
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "sudo systemctl restart nginx"
+
+          # 새로운 컨테이너 실행
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
+
+          # 기존 컨테이너 중지 및 삭제
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker stop my-app-$CURRENT_BACKEND"
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker rm my-app-$CURRENT_BACKEND"
+
+          # 사용하지 않는 리소스 정리
+          ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "docker system prune -a -f"
