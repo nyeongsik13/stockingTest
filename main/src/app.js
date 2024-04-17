@@ -44,7 +44,7 @@ const redisClient = createClient({
   url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
   password: `${process.env.REDIS_PASSWORD}`,
 });
-
+    
 await redisClient.connect();
 console.log('Redis 서버에 연결되었습니다.');
 */
