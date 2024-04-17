@@ -1,4 +1,4 @@
-name: Continuous Blue-Green Deployment to AWS ECR
+name: Blue-Green Deployment to AWS ECR
 
 on:
   push:
@@ -8,14 +8,14 @@ jobs:
 
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-      
+
     - name: Check AWS CLI version
       run: aws --version
-      
+
     - name: Set AWS CLI path
       run: export PATH=$PATH:/usr/local/bin/aws
       
@@ -25,13 +25,13 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
-        
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
       with:
         mask-password: 'true'
-        
+
     - name: Build, tag, and push image to Amazon ECR
       env:
         IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test
@@ -56,44 +56,79 @@ jobs:
           --build-arg KAKAO_ID="${{ secrets.KAKAO_ID }}" \
           --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
         docker push $IMAGE_URI
-        
-    - name: Deploy to Blue or Green environment
-      env:
-        INSTANCE_1_IP: ${{ secrets.PUBLICIP }}
-        INSTANCE_1_SSH_KEY: ${{ secrets.REMOTE_PRIVATE_KEY }}
-        INSTANCE_2_IP: ${{ secrets.PUBLICIP2 }}
-        INSTANCE_2_SSH_KEY: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
-        EC2_USER: ${{ secrets.EC2USER }}
-      run: |
-        # 도커 로그인
-        echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-        
-        # 중앙 배포 관리 시스템에서 배포 상태 확인
-        CURRENT_BACKEND=$(curl -s https://deployment-manager.example.com/api/status | jq -r '.currentBackend')
-        
-        if [ "$CURRENT_BACKEND" == "blue" ]; then
-          NEW_BACKEND="green"
-        else
-          NEW_BACKEND="blue"
-        fi
-        
-        # 인스턴스 1에 배포
-        docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "sudo systemctl restart nginx"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker stop my-app-$CURRENT_BACKEND"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker rm my-app-$CURRENT_BACKEND"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker system prune -a -f"
-        
-        # 인스턴스 2에 배포
-        docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "sudo systemctl restart nginx"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker stop my-app-$CURRENT_BACKEND"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker rm my-app-$CURRENT_BACKEND"
-        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker system prune -a -f"
-        
-        # 중앙 배포 관리 시스템에 배포 성공 보고
-        curl -X POST -H "Content-Type: application/json" -d '{"currentBackend":"$NEW_BACKEND"}' https://deployment-manager.example.com/api/update
+
+    - name: Deploy to Blue or Green environment on Instance 1
+      uses: appleboy/ssh-action@master
+      with:
+        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+        host: ${{ secrets.PUBLICIP }}
+        username: ${{ secrets.EC2USER }}
+        port: 22
+        script: |
+          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+
+          CURRENT_BACKEND=$(sudo grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf | head -n 1 | sed 's/_backend//')
+          echo "Current Backend on Instance 1: $CURRENT_BACKEND"
+
+          if [ "$CURRENT_BACKEND" == "blue" ]; then
+            NEW_BACKEND="green"
+          else
+            NEW_BACKEND="blue"
+          fi
+
+          sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
+          sudo systemctl restart nginx
+
+          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+          
+          # Check if the new container is running successfully
+          if docker inspect --format='{{.State.Running}}' my-app-$NEW_BACKEND; then
+            docker stop my-app-$CURRENT_BACKEND
+            docker rm my-app-$CURRENT_BACKEND
+            docker system prune -a -f
+          else
+            # Rollback to the previous version
+            docker stop my-app-$NEW_BACKEND
+            docker rm my-app-$NEW_BACKEND
+            docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            echo "Deployment to $NEW_BACKEND failed. Rolled back to $CURRENT_BACKEND."
+          fi
+
+    - name: Deploy to Blue or Green environment on Instance 2
+      uses: appleboy/ssh-action@master
+      with:
+        key: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
+        host: ${{ secrets.PUBLICIP2 }}
+        username: ${{ secrets.EC2USER }}
+        port: 22
+        script: |
+          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+
+          CURRENT_BACKEND=$(sudo grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf | head -n 1 | sed 's/_backend//')
+          echo "Current Backend on Instance 2: $CURRENT_BACKEND"
+
+          if [ "$CURRENT_BACKEND" == "blue" ]; then
+            NEW_BACKEND="green"
+          else
+            NEW_BACKEND="blue"
+          fi
+
+          sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
+          sudo systemctl restart nginx
+
+          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+
+          # Check if the new container is running successfully
+          if docker inspect --format='{{.State.Running}}' my-app-$NEW_BACKEND; then
+            docker stop my-app-$CURRENT_BACKEND
+            docker rm my-app-$CURRENT_BACKEND
+            docker system prune -a -f
+          else
+            # Rollback to the previous version
+            docker stop my-app-$NEW_BACKEND
+            docker rm my-app-$NEW_BACKEND
+            docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            echo "Deployment to $NEW_BACKEND failed. Rolled back to $CURRENT_BACKEND."
+          fi
