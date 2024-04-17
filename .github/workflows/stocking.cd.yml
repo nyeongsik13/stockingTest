@@ -82,6 +82,9 @@ jobs:
                       location / {
                           proxy_pass http://blue_backend;
                       }
+                      location /green {
+                        proxy_pass http://green_backend;
+                    }
                   }
               }" | sudo tee /etc/nginx/nginx.conf
         
@@ -137,6 +140,9 @@ jobs:
                     location / {
                         proxy_pass http://blue_backend;
                     }
+                    location /green {
+                      proxy_pass http://green_backend;
+                  }
                 }
             }" | sudo tee /etc/nginx/nginx.conf
 
