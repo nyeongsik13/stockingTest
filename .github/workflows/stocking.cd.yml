@@ -1,4 +1,4 @@
-name: Blue-Green Deployment to AWS ECR
+name: Blue-Green Deployment with Zero Downtime to AWS ECR
 
 on:
   push:
@@ -65,9 +65,6 @@ jobs:
         username: ${{ secrets.EC2USER }}
         port: 22
         script: |
-          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-
           CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
           
           if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
@@ -88,12 +85,30 @@ jobs:
             NEW_BACKEND="blue"
           fi
 
-          # Update existing environment
-          docker stop my-app-$CURRENT_BACKEND
-          docker rm my-app-$CURRENT_BACKEND
-          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+          # Health Check
+          NEW_CONTAINER_ID=$(docker run -d ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest)
+          NEW_CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $NEW_CONTAINER_ID)
+          HEALTH_CHECK_URL="http://$NEW_CONTAINER_IP:3000/health"
+          until $(curl --output /dev/null --silent --head --fail $HEALTH_CHECK_URL); do
+            echo 'Waiting for the container to be healthy...'
+            sleep 5
+          done
+
+          # Update NGINX routing
           sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
           sudo systemctl restart nginx
+
+          # Connection Draining
+          sleep 30 # Wait for 30 seconds to drain existing connections
+
+          # Rollback Strategy
+          sudo sed -i "s/\$CURRENT_BACKEND/$CURRENT_BACKEND/" /etc/nginx/nginx.conf
+          sudo systemctl restart nginx
+          echo "Deployment failed. Rolled back to $CURRENT_BACKEND."
+
+          # Cleanup
+          docker stop $NEW_CONTAINER_ID
+          docker rm $NEW_CONTAINER_ID
 
     - name: Deploy to Blue or Green environment on Instance 2
       uses: appleboy/ssh-action@master
@@ -103,11 +118,8 @@ jobs:
         username: ${{ secrets.EC2USER }}
         port: 22
         script: |
-          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-
           CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
-
+          
           if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
             CURRENT_BACKEND="blue"
           elif [[ $CURRENT_CONTAINERS == *"my-app-green"* ]]; then
@@ -126,9 +138,27 @@ jobs:
             NEW_BACKEND="blue"
           fi
 
-          # Update existing environment
-          docker stop my-app-$CURRENT_BACKEND
-          docker rm my-app-$CURRENT_BACKEND
-          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+          # Health Check
+          NEW_CONTAINER_ID=$(docker run -d ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest)
+          NEW_CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $NEW_CONTAINER_ID)
+          HEALTH_CHECK_URL="http://$NEW_CONTAINER_IP:3000/health"
+          until $(curl --output /dev/null --silent --head --fail $HEALTH_CHECK_URL); do
+            echo 'Waiting for the container to be healthy...'
+            sleep 5
+          done
+
+          # Update NGINX routing
           sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
           sudo systemctl restart nginx
+
+          # Connection Draining
+          sleep 30 # Wait for 30 seconds to drain existing connections
+
+          # Rollback Strategy
+          sudo sed -i "s/\$CURRENT_BACKEND/$CURRENT_BACKEND/" /etc/nginx/nginx.conf
+          sudo systemctl restart nginx
+          echo "Deployment failed. Rolled back to $CURRENT_BACKEND."
+
+          # Cleanup
+          docker stop $NEW_CONTAINER_ID
+          docker rm $NEW_CONTAINER_ID
