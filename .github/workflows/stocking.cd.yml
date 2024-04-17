@@ -18,7 +18,7 @@ jobs:
 
     - name: Set AWS CLI path
       run: export PATH=$PATH:/usr/local/bin/aws
-      
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -68,19 +68,19 @@ jobs:
           echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-          # Check running containers
           CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
-              
+          
           if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
             CURRENT_BACKEND="blue"
           elif [[ $CURRENT_CONTAINERS == *"my-app-green"* ]]; then
             CURRENT_BACKEND="green"
           else
-            echo "No running containers found."
-            exit 1
+            # Deploy to new environment
+            NEW_BACKEND="blue"
+            docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
+            sudo systemctl restart nginx
           fi
-          
-          echo "Current Backend on Instance 1: $CURRENT_BACKEND"
 
           if [ "$CURRENT_BACKEND" == "blue" ]; then
             NEW_BACKEND="green"
@@ -88,23 +88,12 @@ jobs:
             NEW_BACKEND="blue"
           fi
 
+          # Update existing environment
+          docker stop my-app-$CURRENT_BACKEND
+          docker rm my-app-$CURRENT_BACKEND
+          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
           sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
           sudo systemctl restart nginx
-
-          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-          
-          # Check if the new container is running successfully
-          if docker inspect --format='{{.State.Running}}' my-app-$NEW_BACKEND; then
-            docker stop my-app-$CURRENT_BACKEND
-            docker rm my-app-$CURRENT_BACKEND
-            docker system prune -a -f
-          else
-            # Rollback to the previous version
-            docker stop my-app-$NEW_BACKEND
-            docker rm my-app-$NEW_BACKEND
-            docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-            echo "Deployment to $NEW_BACKEND failed. Rolled back to $CURRENT_BACKEND."
-          fi
 
     - name: Deploy to Blue or Green environment on Instance 2
       uses: appleboy/ssh-action@master
@@ -117,40 +106,29 @@ jobs:
           echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-          # Check running containers
           CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
-          
+
           if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
             CURRENT_BACKEND="blue"
           elif [[ $CURRENT_CONTAINERS == *"my-app-green"* ]]; then
             CURRENT_BACKEND="green"
           else
-            echo "No running containers found."
-            exit 1
+            # Deploy to new environment
+            NEW_BACKEND="blue"
+            docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
+            sudo systemctl restart nginx
           fi
-      
-          echo "Current Backend on Instance 1: $CURRENT_BACKEND"
 
           if [ "$CURRENT_BACKEND" == "blue" ]; then
-              NEW_BACKEND="green"
+            NEW_BACKEND="green"
           else
-              NEW_BACKEND="blue"
+            NEW_BACKEND="blue"
           fi
 
+          # Update existing environment
+          docker stop my-app-$CURRENT_BACKEND
+          docker rm my-app-$CURRENT_BACKEND
+          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
           sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
           sudo systemctl restart nginx
-
-          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-
-          # Check if the new container is running successfully
-          if docker inspect --format='{{.State.Running}}' my-app-$NEW_BACKEND; then
-            docker stop my-app-$CURRENT_BACKEND
-            docker rm my-app-$CURRENT_BACKEND
-            docker system prune -a -f
-          else
-            # Rollback to the previous version
-            docker stop my-app-$NEW_BACKEND
-            docker rm my-app-$NEW_BACKEND
-            docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-            echo "Deployment to $NEW_BACKEND failed. Rolled back to $CURRENT_BACKEND."
-          fi
