@@ -85,7 +85,7 @@ export function deleteSessionsByUserId(userId, callback) {
     DELETE FROM sessions
     WHERE JSON_EXTRACT(data, '$.passport.user') = ?
   `;
-
+ 
   connection.query(query, [userId], (error, results) => {
     if (error) {
       console.error('세션 삭제 중 오류 발생:', error);
