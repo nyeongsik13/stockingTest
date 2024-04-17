@@ -68,7 +68,18 @@ jobs:
           echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-          CURRENT_BACKEND=$(sudo grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf | head -n 1 | sed 's/_backend//')
+          # Check running containers
+          CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
+              
+          if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
+            CURRENT_BACKEND="blue"
+          elif [[ $CURRENT_CONTAINERS == *"my-app-green"* ]]; then
+            CURRENT_BACKEND="green"
+          else
+            echo "No running containers found."
+            exit 1
+          fi
+          
           echo "Current Backend on Instance 1: $CURRENT_BACKEND"
 
           if [ "$CURRENT_BACKEND" == "blue" ]; then
@@ -106,13 +117,24 @@ jobs:
           echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-          CURRENT_BACKEND=$(sudo grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf | head -n 1 | sed 's/_backend//')
-          echo "Current Backend on Instance 2: $CURRENT_BACKEND"
+          # Check running containers
+          CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
+          
+          if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
+            CURRENT_BACKEND="blue"
+          elif [[ $CURRENT_CONTAINERS == *"my-app-green"* ]]; then
+            CURRENT_BACKEND="green"
+          else
+            echo "No running containers found."
+            exit 1
+          fi
+      
+          echo "Current Backend on Instance 1: $CURRENT_BACKEND"
 
           if [ "$CURRENT_BACKEND" == "blue" ]; then
-            NEW_BACKEND="green"
+              NEW_BACKEND="green"
           else
-            NEW_BACKEND="blue"
+              NEW_BACKEND="blue"
           fi
 
           sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
