@@ -88,7 +88,7 @@ jobs:
             # Health Check
             NEW_CONTAINER_ID=$(docker run -d ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest)
             NEW_CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $NEW_CONTAINER_ID)
-            HEALTH_CHECK_URL="http://$NEW_CONTAINER_IP:3000/health"
+            HEALTH_CHECK_URL="http://$NEW_CONTAINER_IP:3000/"
             until $(curl --output /dev/null --silent --head --fail $HEALTH_CHECK_URL); do
               echo 'Waiting for the container to be healthy...'
               sleep 5
@@ -142,7 +142,7 @@ jobs:
           # Health Check
           NEW_CONTAINER_ID=$(docker run -d ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest)
           NEW_CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $NEW_CONTAINER_ID)
-          HEALTH_CHECK_URL="http://$NEW_CONTAINER_IP:3000/health"
+          HEALTH_CHECK_URL="http://$NEW_CONTAINER_IP:3000/"
           until $(curl --output /dev/null --silent --head --fail $HEALTH_CHECK_URL); do
             echo 'Waiting for the container to be healthy...'
             sleep 5
