@@ -96,7 +96,7 @@ export function deleteSessionsByUserId(userId, callback) {
   });
 }
 app.get('/', (req, res) => {
-  res.send('<h1>Stocking 6857687!!</h1>');
+  res.send('<h1>Stocking 99999!!</h1>');
 });
 app.use(passport.initialize());
 app.use(passport.session());
