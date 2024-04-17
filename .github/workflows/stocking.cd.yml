@@ -75,7 +75,7 @@ jobs:
                       server ${{ secrets.PUBLICIP }}:3000;
                   }
                   upstream green_backend {
-                      server ${{ secrets.PUBLICIP2 }}:3001;
+                      server ${{ secrets.PUBLICIP }}:3001;
                   }
                   server {
                       listen 80;
@@ -131,7 +131,7 @@ jobs:
           }  
           http {
                 upstream blue_backend {
-                    server ${{ secrets.PUBLICIP }}:3000;
+                    server ${{ secrets.PUBLICIP2 }}:3000;
                 }
                 upstream green_backend {
                     server ${{ secrets.PUBLICIP2 }}:3001;
