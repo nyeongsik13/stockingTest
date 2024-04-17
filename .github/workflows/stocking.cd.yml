@@ -60,7 +60,10 @@ jobs:
     - name: Deploy to Blue or Green environment
       env:
         INSTANCE_1_IP: ${{ secrets.PUBLICIP }}
+        INSTANCE_1_SSH_KEY: ${{ secrets.REMOTE_PRIVATE_KEY }}
         INSTANCE_2_IP: ${{ secrets.PUBLICIP2 }}
+        INSTANCE_2_SSH_KEY: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
+        EC2_USER: ${{ secrets.EC2USER }}
       run: |
         # 도커 로그인
         echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
@@ -76,21 +79,21 @@ jobs:
         
         # 인스턴스 1에 배포
         docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-        ssh ubuntu@$INSTANCE_1_IP "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
-        ssh ubuntu@$INSTANCE_1_IP "sudo systemctl restart nginx"
-        ssh ubuntu@$INSTANCE_1_IP "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-        ssh ubuntu@$INSTANCE_1_IP "docker stop my-app-$CURRENT_BACKEND"
-        ssh ubuntu@$INSTANCE_1_IP "docker rm my-app-$CURRENT_BACKEND"
-        ssh ubuntu@$INSTANCE_1_IP "docker system prune -a -f"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "sudo systemctl restart nginx"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker stop my-app-$CURRENT_BACKEND"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker rm my-app-$CURRENT_BACKEND"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_1_SSH_KEY $EC2_USER@$INSTANCE_1_IP "docker system prune -a -f"
         
         # 인스턴스 2에 배포
         docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-        ssh ubuntu@$INSTANCE_2_IP "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
-        ssh ubuntu@$INSTANCE_2_IP "sudo systemctl restart nginx"
-        ssh ubuntu@$INSTANCE_2_IP "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
-        ssh ubuntu@$INSTANCE_2_IP "docker stop my-app-$CURRENT_BACKEND"
-        ssh ubuntu@$INSTANCE_2_IP "docker rm my-app-$CURRENT_BACKEND"
-        ssh ubuntu@$INSTANCE_2_IP "docker system prune -a -f"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "sudo sed -i 's/$CURRENT_BACKEND/$NEW_BACKEND/' /etc/nginx/nginx.conf"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "sudo systemctl restart nginx"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker stop my-app-$CURRENT_BACKEND"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker rm my-app-$CURRENT_BACKEND"
+        ssh -o StrictHostKeyChecking=no -i $INSTANCE_2_SSH_KEY $EC2_USER@$INSTANCE_2_IP "docker system prune -a -f"
         
         # 중앙 배포 관리 시스템에 배포 성공 보고
         curl -X POST -H "Content-Type: application/json" -d '{"currentBackend":"$NEW_BACKEND"}' https://deployment-manager.example.com/api/update
