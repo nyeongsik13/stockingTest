@@ -98,6 +98,11 @@ export function deleteSessionsByUserId(userId, callback) {
 app.get('/', (req, res) => {
   res.send('<h1>Stocking 111!!</h1>');
 });
+
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 app.use(passport.initialize());
 app.use(passport.session());
 passportConfig(passport);
