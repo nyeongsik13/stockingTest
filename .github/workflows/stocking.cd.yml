@@ -99,7 +99,7 @@ jobs:
               echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
               docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
     
-              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf")
+              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP }} "grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf | head -n 1")
               echo "Current Backend on Instance 1: $CURRENT_BACKEND"
 
               if [ "$CURRENT_BACKEND" == "blue" ]; then
@@ -158,7 +158,7 @@ jobs:
               echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
               docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
     
-              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf")
+              CURRENT_BACKEND=$(ssh ${{ secrets.EC2USER }}@${{ secrets.PUBLICIP2 }} "grep -oP 'upstream\s+\K\w+' /etc/nginx/nginx.conf | head -n 1")
               echo "Current Backend on Instance 2: $CURRENT_BACKEND"
 
               if [ "$CURRENT_BACKEND" == "blue" ]; then
