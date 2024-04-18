@@ -82,6 +82,7 @@ jobs:
                 CURRENT_BACKEND="green"
                 NEW_BACKEND="blue"
               fi
+            fi
     
             # Deploy new environment
             if [ "$NEW_BACKEND" == "blue" ]; then
@@ -132,6 +133,7 @@ jobs:
                 CURRENT_BACKEND="green"
                 NEW_BACKEND="blue"
               fi
+            fi
   
 
   
