@@ -77,11 +77,7 @@ jobs:
               CURRENT_BACKEND="green"
               NEW_BACKEND="blue"
             fi
-  
-            # Stop and remove the current environment
-            docker stop my-app-$CURRENT_BACKEND || true
-            docker rm my-app-$CURRENT_BACKEND || true
-  
+    
             # Deploy new environment
             docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
   
@@ -93,12 +89,13 @@ jobs:
               # Update Nginx to route traffic to the new environment
               sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
               sudo systemctl restart nginx
+              # Stop and remove the current environment
+              docker stop my-app-$CURRENT_BACKEND || true
+              docker rm my-app-$CURRENT_BACKEND || true
             else
               echo "Health check failed. Rolling back..."
               docker stop my-app-$NEW_BACKEND
               docker rm my-app-$NEW_BACKEND
-              docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-              sudo systemctl restart nginx
             fi
   
     - name: Deploy to Blue or Green environment on Instance 2
@@ -122,9 +119,7 @@ jobs:
               NEW_BACKEND="blue"
             fi
   
-            # Stop and remove the current environment
-            docker stop my-app-$CURRENT_BACKEND || true
-            docker rm my-app-$CURRENT_BACKEND || true
+
   
             # Deploy new environment
             docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
@@ -137,10 +132,11 @@ jobs:
               # Update Nginx to route traffic to the new environment
               sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
               sudo systemctl restart nginx
+              # Stop and remove the current environment
+              docker stop my-app-$CURRENT_BACKEND || true
+              docker rm my-app-$CURRENT_BACKEND || true
             else
               echo "Health check failed. Rolling back..."
               docker stop my-app-$NEW_BACKEND
               docker rm my-app-$NEW_BACKEND
-              docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-              sudo systemctl restart nginx
             fi
