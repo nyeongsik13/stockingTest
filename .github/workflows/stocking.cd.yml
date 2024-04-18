@@ -70,17 +70,26 @@ jobs:
   
             CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
             
-            if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
-              CURRENT_BACKEND="blue"
-              NEW_BACKEND="green"
-            else
-              CURRENT_BACKEND="green"
+
+              # 처음 배포라면 블루 환경을 배포
+            if [[ -z "$CURRENT_CONTAINERS" ]]; then
               NEW_BACKEND="blue"
-            fi
+            else 
+              if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
+                CURRENT_BACKEND="blue"
+                NEW_BACKEND="green"
+              else
+                CURRENT_BACKEND="green"
+                NEW_BACKEND="blue"
+              fi
     
             # Deploy new environment
-            docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-  
+            if [ "$NEW_BACKEND" == "blue" ]; then
+              docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            else
+              docker run -d --name my-app-$NEW_BACKEND -p 3001:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            fi
+
             # Health check
             sleep 30s # Wait for the new environment to start
             HEALTH_CHECK_RESULT=$(curl -s http://localhost:3000/)
@@ -111,19 +120,29 @@ jobs:
   
             CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
             
-            if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
-              CURRENT_BACKEND="blue"
-              NEW_BACKEND="green"
-            else
-              CURRENT_BACKEND="green"
+
+            # 처음 배포라면 블루 환경을 배포
+            if [[ -z "$CURRENT_CONTAINERS" ]]; then
               NEW_BACKEND="blue"
-            fi
+            else 
+              if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
+                CURRENT_BACKEND="blue"
+                NEW_BACKEND="green"
+              else
+                CURRENT_BACKEND="green"
+                NEW_BACKEND="blue"
+              fi
   
 
   
             # Deploy new environment
-            docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-  
+            if [ "$NEW_BACKEND" == "blue" ]; then
+              docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            else
+              docker run -d --name my-app-$NEW_BACKEND -p 3001:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+            fi
+
+
             # Health check
             sleep 30s # Wait for the new environment to start
             HEALTH_CHECK_RESULT=$(curl -s http://localhost:3000/)
