@@ -97,7 +97,6 @@ jobs:
   
             if [[ "$HEALTH_CHECK_RESULT" == *"<h1>Stocking 111!!</h1>"* ]]; then
               # Update Nginx to route traffic to the new environment
-              sudo sed -i "s/upstream ${CURRENT_BACKEND}_backend {/upstream ${NEW_BACKEND}_backend {/" /etc/nginx/nginx.conf
               sudo systemctl restart nginx
               # Stop and remove the current environment
               docker stop my-app-$CURRENT_BACKEND || true
