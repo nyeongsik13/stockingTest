@@ -60,75 +60,87 @@ jobs:
     - name: Deploy to Blue or Green environment on Instance 1
       uses: appleboy/ssh-action@master
       with:
-        key: ${{ secrets.REMOTE_PRIVATE_KEY }}
-        host: ${{ secrets.PUBLICIP }}
-        username: ${{ secrets.EC2USER }}
-        port: 22
-        script: |
-          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-
-          CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
-          
-          if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
-            CURRENT_BACKEND="blue"
-          elif [[ $CURRENT_CONTAINERS == *"my-app-green"* ]]; then
-            CURRENT_BACKEND="green"
-          else
-            # Deploy to new environment
-            NEW_BACKEND="blue"
+          key: ${{ secrets.REMOTE_PRIVATE_KEY }}
+          host: ${{ secrets.PUBLICIP }}
+          username: ${{ secrets.EC2USER }}
+          port: 22
+          script: |
+            echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+  
+            CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
+            
+            if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
+              CURRENT_BACKEND="blue"
+              NEW_BACKEND="green"
+            else
+              CURRENT_BACKEND="green"
+              NEW_BACKEND="blue"
+            fi
+  
+            # Stop and remove the current environment
+            docker stop my-app-$CURRENT_BACKEND || true
+            docker rm my-app-$CURRENT_BACKEND || true
+  
+            # Deploy new environment
             docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-            sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
-            sudo systemctl restart nginx
-          fi
-
-          if [ "$CURRENT_BACKEND" == "blue" ]; then
-            NEW_BACKEND="green"
-          else
-            NEW_BACKEND="blue"
-          fi
-
-          # Update existing environment
-          docker stop my-app-$CURRENT_BACKEND
-          docker rm my-app-$CURRENT_BACKEND
-          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-          sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
-          sudo systemctl restart nginx
-
+  
+            # Health check
+            sleep 30s # Wait for the new environment to start
+            HEALTH_CHECK_RESULT=$(curl -s http://localhost:3000/)
+  
+            if [[ "$HEALTH_CHECK_RESULT" == *"<h1>Stocking 111!!</h1>"* ]]; then
+              # Update Nginx to route traffic to the new environment
+              sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
+              sudo systemctl restart nginx
+            else
+              echo "Health check failed. Rolling back..."
+              docker stop my-app-$NEW_BACKEND
+              docker rm my-app-$NEW_BACKEND
+              docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+              sudo systemctl restart nginx
+            fi
+  
     - name: Deploy to Blue or Green environment on Instance 2
       uses: appleboy/ssh-action@master
       with:
-        key: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
-        host: ${{ secrets.PUBLICIP2 }}
-        username: ${{ secrets.EC2USER }}
-        port: 22
-        script: |
-          echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-          docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-
-          CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
-
-          if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
-            CURRENT_BACKEND="blue"
-          elif [[ $CURRENT_CONTAINERS == *"my-app-green"* ]]; then
-            CURRENT_BACKEND="green"
-          else
-            # Deploy to new environment
-            NEW_BACKEND="blue"
+          key: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
+          host: ${{ secrets.PUBLICIP2 }}
+          username: ${{ secrets.EC2USER }}
+          port: 22
+          script: |
+            echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+  
+            CURRENT_CONTAINERS=$(docker ps -a --format '{{.Names}}')
+            
+            if [[ $CURRENT_CONTAINERS == *"my-app-blue"* ]]; then
+              CURRENT_BACKEND="blue"
+              NEW_BACKEND="green"
+            else
+              CURRENT_BACKEND="green"
+              NEW_BACKEND="blue"
+            fi
+  
+            # Stop and remove the current environment
+            docker stop my-app-$CURRENT_BACKEND || true
+            docker rm my-app-$CURRENT_BACKEND || true
+  
+            # Deploy new environment
             docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-            sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
-            sudo systemctl restart nginx
-          fi
-
-          if [ "$CURRENT_BACKEND" == "blue" ]; then
-            NEW_BACKEND="green"
-          else
-            NEW_BACKEND="blue"
-          fi
-
-          # Update existing environment
-          docker stop my-app-$CURRENT_BACKEND
-          docker rm my-app-$CURRENT_BACKEND
-          docker run -d --name my-app-$NEW_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
-          sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
-          sudo systemctl restart nginx
+  
+            # Health check
+            sleep 30s # Wait for the new environment to start
+            HEALTH_CHECK_RESULT=$(curl -s http://localhost:3000/)
+  
+            if [[ "$HEALTH_CHECK_RESULT" == *"<h1>Stocking 111!!</h1>"* ]]; then
+              # Update Nginx to route traffic to the new environment
+              sudo sed -i "s/\$CURRENT_BACKEND/\$NEW_BACKEND/" /etc/nginx/nginx.conf
+              sudo systemctl restart nginx
+            else
+              echo "Health check failed. Rolling back..."
+              docker stop my-app-$NEW_BACKEND
+              docker rm my-app-$NEW_BACKEND
+              docker run -d --name my-app-$CURRENT_BACKEND -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+              sudo systemctl restart nginx
+            fi
