@@ -66,8 +66,8 @@ jobs:
         fi
         echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
 
-        - name: Set target instance and keys
-        run: |
+    - name: Set target instance and keys
+      run: |
           if [ "$LAST_INSTANCE" == "1" ]; then
             TARGET_INSTANCE=2
             REMOTE_PRIVATE_KEY=${{ secrets.REMOTE_PRIVATE_KEY2 }}
