@@ -76,6 +76,10 @@ jobs:
           echo "LAST_INSTANCE=2" >> $GITHUB_ENV
         fi
 
+    - name: Read deploy history
+      run: cat deploy_history/deploy_history.txt
+      
+
 
     - name: Set target instance and keys
       run: |
