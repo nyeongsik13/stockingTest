@@ -163,3 +163,6 @@ jobs:
  
     - name: List files in the current directory
       run: ls -la
+
+    - name: Display the contents of deploy_history.txt
+      run: cat deploy_history.txt
