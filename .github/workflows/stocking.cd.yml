@@ -77,7 +77,7 @@ jobs:
     - name: Create deploy history file
       run: echo "1" > deploy_history.txt    
 
-    - name: Deploy to Blue or Green environment
+    - name: Deploy to Blue environment
       if: env.TARGET_INSTANCE == '1'
       uses: appleboy/ssh-action@master
       with:
@@ -91,7 +91,7 @@ jobs:
 
                 CONTAINER_NAME="my-app-blue"
                 
-                docker run -d --name my-app-$CONTAINER_NAME  -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+                docker run -d --name $CONTAINER_NAME  -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
     
                 sleep 30s # Wait for the new environment to start
                 
@@ -104,7 +104,7 @@ jobs:
                 echo "Health check failed. Rolling back..."
                 fi
 
-    - name: Deploy to Blue or Green environment
+    - name: Deploy to Green environment
       if: env.TARGET_INSTANCE == '2'
       uses: appleboy/ssh-action@master
       with:
@@ -118,7 +118,7 @@ jobs:
 
                 CONTAINER_NAME="my-app-green"
                 
-                docker run -d --name my-app-$CONTAINER_NAME  -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+                docker run -d --name $CONTAINER_NAME  -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
     
                 sleep 30s # Wait for the new environment to start
                 
