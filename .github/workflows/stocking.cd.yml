@@ -188,7 +188,7 @@ jobs:
     #     mkdir -p deploy_history
     #     echo "A=$TARGET_INSTANCE" > deploy_history/deploy_history.txt
 
-
+ 
     # - name: Read deploy history
     #   run: cat deploy_history/deploy_history.txt
       
