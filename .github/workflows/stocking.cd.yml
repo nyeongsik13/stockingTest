@@ -68,6 +68,7 @@ jobs:
           echo "deploy_history.txt does not exist." # 파일이 존재하지 않는 경우
           echo "Setting LAST_INSTANCE to default: 2" # 기본값으로 설정할 때
           echo "LAST_INSTANCE=2" >> $GITHUB_ENV
+          ls -la # 현재 디렉토리의 모든 파일 목록 출력
         fi
 
     - name: Set target instance and keys
