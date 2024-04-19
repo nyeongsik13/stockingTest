@@ -57,28 +57,16 @@ jobs:
           --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
         docker push $IMAGE_URI
 
-    - name: Download last instance artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: last-instance
-      continue-on-error: true
-
-    - name: Determine target instance
+    - name: Read last instance from file
+      id: last_instance
       run: |
-        if [ -f last-instance.txt ]; then
-          LAST_INSTANCE=$(cat last-instance.txt)
+        if [ -f last_instance.txt ]; then
+          echo "LAST_INSTANCE=$(cat last_instance.txt)" >> $GITHUB_ENV
         else
-          LAST_INSTANCE=2  # Default to 2 if not found
+          echo "LAST_INSTANCE=2" >> $GITHUB_ENV
         fi
+        echo "$TARGET_INSTANCE" > last_instance.txt
 
-        if [ "$LAST_INSTANCE" == "1" ]; then
-          TARGET_INSTANCE=2
-        else
-          TARGET_INSTANCE=1
-        fi
-        echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
-        echo "TARGET_INSTANCE=$TARGET_INSTANCE" >> $GITHUB_ENV
-        echo "$TARGET_INSTANCE" > last-instance.txt  # Prepare for next run
 
     # - name: Check if deploy_history.txt exists
     #   run: |
@@ -94,13 +82,22 @@ jobs:
     #     fi
 
 
-    # - name: Set target instance and keys
-    #   run: |
-    #       if [ "$LAST_INSTANCE" == "1" ]; then
-    #         echo "TARGET_INSTANCE=2" >> $GITHUB_ENV
-    #       else
-    #         echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
-    #       fi
+    - name: Commit last instance
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add last_instance.txt
+        git commit -m "Update last instance value"
+        git push
+
+
+    - name: Set target instance and keys
+      run: |
+          if [ "$LAST_INSTANCE" == "1" ]; then
+            echo "TARGET_INSTANCE=2" >> $GITHUB_ENV
+          else
+            echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
+          fi
 
     - name: Deploy to Blue environment
       if: env.TARGET_INSTANCE == '1'
