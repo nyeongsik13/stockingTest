@@ -60,9 +60,13 @@ jobs:
     - name: Get last deployed instance
       run: |
         if [ -f deploy_history.txt ]; then
+          echo "deploy_history.txt exists." # 파일이 존재하는 경우
           LAST_INSTANCE=$(grep 'A=' deploy_history.txt | cut -d '=' -f2)
+          echo "LAST_INSTANCE found: $LAST_INSTANCE" # 마지막 인스턴스를 찾았을 때
           echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
         else
+          echo "deploy_history.txt does not exist." # 파일이 존재하지 않는 경우
+          echo "Setting LAST_INSTANCE to default: 2" # 기본값으로 설정할 때
           echo "LAST_INSTANCE=2" >> $GITHUB_ENV
         fi
 
