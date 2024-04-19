@@ -57,37 +57,50 @@ jobs:
           --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
         docker push $IMAGE_URI
 
-    - name: Store last instance as artifact  
-      uses: actions/upload-artifact@v3
+    - name: Download last instance artifact
+      uses: actions/download-artifact@v3
       with:
         name: last-instance
-        path: last-instance.txt
+      continue-on-error: true
 
-    - name: Check if deploy_history.txt exists
+    - name: Determine target instance
       run: |
-        if [ -f deploy_history/deploy_history.txt ]; then
-          echo "deploy_history.txt exists."
-          LAST_INSTANCE=$(grep 'A=' deploy_history/deploy_history.txt | cut -d '=' -f2)
-          echo "LAST_INSTANCE found: $LAST_INSTANCE"
-          echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
+        if [ -f last-instance.txt ]; then
+          LAST_INSTANCE=$(cat last-instance.txt)
         else
-          echo "deploy_history.txt does not exist."
-          echo "Setting LAST_INSTANCE to default: 2"
-          echo "LAST_INSTANCE=2" >> $GITHUB_ENV
+          LAST_INSTANCE=2  # Default to 2 if not found
         fi
 
-    - name: Read deploy history
-      run: cat deploy_history/deploy_history.txt
-      
+        if [ "$LAST_INSTANCE" == "1" ]; then
+          TARGET_INSTANCE=2
+        else
+          TARGET_INSTANCE=1
+        fi
+        echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
+        echo "TARGET_INSTANCE=$TARGET_INSTANCE" >> $GITHUB_ENV
+        echo "$TARGET_INSTANCE" > last-instance.txt  # Prepare for next run
+
+    # - name: Check if deploy_history.txt exists
+    #   run: |
+    #     if [ -f deploy_history/deploy_history.txt ]; then
+    #       echo "deploy_history.txt exists."
+    #       LAST_INSTANCE=$(grep 'A=' deploy_history/deploy_history.txt | cut -d '=' -f2)
+    #       echo "LAST_INSTANCE found: $LAST_INSTANCE"
+    #       echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
+    #     else
+    #       echo "deploy_history.txt does not exist."
+    #       echo "Setting LAST_INSTANCE to default: 2"
+    #       echo "LAST_INSTANCE=2" >> $GITHUB_ENV
+    #     fi
 
 
-    - name: Set target instance and keys
-      run: |
-          if [ "$LAST_INSTANCE" == "1" ]; then
-            echo "TARGET_INSTANCE=2" >> $GITHUB_ENV
-          else
-            echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
-          fi
+    # - name: Set target instance and keys
+    #   run: |
+    #       if [ "$LAST_INSTANCE" == "1" ]; then
+    #         echo "TARGET_INSTANCE=2" >> $GITHUB_ENV
+    #       else
+    #         echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
+    #       fi
 
     - name: Deploy to Blue environment
       if: env.TARGET_INSTANCE == '1'
@@ -170,12 +183,18 @@ jobs:
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
 
-    - name: Create directory and update deploy history
-      run: |
-        mkdir -p deploy_history
-        echo "A=$TARGET_INSTANCE" > deploy_history/deploy_history.txt
+    # - name: Create directory and update deploy history
+    #   run: |
+    #     mkdir -p deploy_history
+    #     echo "A=$TARGET_INSTANCE" > deploy_history/deploy_history.txt
 
 
-    - name: Read deploy history
-      run: cat deploy_history/deploy_history.txt
+    # - name: Read deploy history
+    #   run: cat deploy_history/deploy_history.txt
       
+
+    - name: Upload last instance artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: last-instance
+        path: last-instance.txt
