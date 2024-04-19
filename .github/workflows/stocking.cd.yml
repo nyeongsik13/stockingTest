@@ -179,8 +179,3 @@ jobs:
                     OLD_CONTAINER_NAME="my-app-blue"
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
-
-
-    - name: Read deploy history
-      run: cat last-instance/last-instance.txt
-      
