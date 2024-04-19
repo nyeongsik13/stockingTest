@@ -60,11 +60,11 @@ jobs:
     - name: Get last deployed instance
       run: |
         if [ -f deploy_history.txt ]; then
-          LAST_INSTANCE=$(cat deploy_history.txt)
+          LAST_INSTANCE=$(grep 'A=' deploy_history.txt | cut -d '=' -f2)
+          echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
         else
-          LAST_INSTANCE=2
+          echo "LAST_INSTANCE=2" >> $GITHUB_ENV
         fi
-        echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
 
     - name: Set target instance and keys
       run: |
@@ -101,10 +101,6 @@ jobs:
                 echo "Health check failed. Rolling back..."
                 fi
 
-    - name: Update deploy history after blue deployment
-      if: env.TARGET_INSTANCE == '1'
-      run: echo '1' > deploy_history.txt
-
     - name: Deploy to Green environment
       if: env.TARGET_INSTANCE == '2'
       uses: appleboy/ssh-action@master
@@ -132,9 +128,6 @@ jobs:
                 echo "Health check failed. Rolling back..."
                 fi
 
-    - name: Update deploy history after green deployment
-      if: env.TARGET_INSTANCE == '2'
-      run: echo '2' > deploy_history.txt
 
     - name: Stop and remove the old environment in old instance
       if: env.TARGET_INSTANCE == '1'
@@ -161,6 +154,9 @@ jobs:
                     OLD_CONTAINER_NAME="my-app-blue"
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
+
+    - name: Update deploy history
+      run: echo "A=$TARGET_INSTANCE" > deploy_history.txt
 
     - name: Display the contents of deploy_history.txt
       run: cat deploy_history.txt
