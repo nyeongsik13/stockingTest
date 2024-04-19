@@ -131,27 +131,29 @@ jobs:
                 echo "Health check failed. Rolling back..."
                 fi
 
-    - name: Set old instance SSH keys and IP
-      run: |
-            if [ "$TARGET_INSTANCE" == "1" ]; then
-            OLD_REMOTE_PRIVATE_KEY=${{ secrets.REMOTE_PRIVATE_KEY2 }}
-            OLD_PUBLIC_IP=${{ secrets.PUBLICIP2 }}
-            else
-            OLD_REMOTE_PRIVATE_KEY=${{ secrets.REMOTE_PRIVATE_KEY1 }}
-            OLD_PUBLIC_IP=${{ secrets.PUBLICIP1 }}
-            fi
-            echo "OLD_REMOTE_PRIVATE_KEY=$OLD_REMOTE_PRIVATE_KEY" >> $GITHUB_ENV
-            echo "OLD_PUBLIC_IP=$OLD_PUBLIC_IP" >> $GITHUB_ENV
-
     - name: Stop and remove the old environment in old instance
+      if: env.TARGET_INSTANCE == '1'
       uses: appleboy/ssh-action@master
       with:
-                key: ${{ env.OLD_REMOTE_PRIVATE_KEY }}
-                host: ${{ env.OLD_PUBLIC_IP }}
+                key: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
+                host: ${{ secrets.PUBLICIP2 }}
                 username: ${{ secrets.EC2USER }}
                 port: 22
                 script: |
-                    OLD_CONTAINER_NAME="my-app-${TARGET_INSTANCE == '1' ? 'blue' : 'green'}"
+                    OLD_CONTAINER_NAME="my-app-green"
+                    docker stop $OLD_CONTAINER_NAME || true
+                    docker rm $OLD_CONTAINER_NAME || true
+
+    - name: Stop and remove the old environment in old instance
+      if: env.TARGET_INSTANCE == '2'
+      uses: appleboy/ssh-action@master
+      with:
+                key: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
+                host: ${{ secrets.PUBLICIP2 }}
+                username: ${{ secrets.EC2USER }}
+                port: 22
+                script: |
+                    OLD_CONTAINER_NAME="my-app-blue"
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
 
