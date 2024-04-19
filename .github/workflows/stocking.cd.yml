@@ -57,19 +57,19 @@ jobs:
           --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
         docker push $IMAGE_URI
 
-    - name: Get last deployed instance
+    - name: Check if deploy_history.txt exists
       run: |
-        if [ -f deploy_history.txt ]; then
-          echo "deploy_history.txt exists." # 파일이 존재하는 경우
-          LAST_INSTANCE=$(grep 'A=' deploy_history.txt | cut -d '=' -f2)
-          echo "LAST_INSTANCE found: $LAST_INSTANCE" # 마지막 인스턴스를 찾았을 때
+        if [ -f deploy_history/deploy_history.txt ]; then
+          echo "deploy_history.txt exists."
+          LAST_INSTANCE=$(grep 'A=' deploy_history/deploy_history.txt | cut -d '=' -f2)
+          echo "LAST_INSTANCE found: $LAST_INSTANCE"
           echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
         else
-          echo "deploy_history.txt does not exist." # 파일이 존재하지 않는 경우
-          echo "Setting LAST_INSTANCE to default: 2" # 기본값으로 설정할 때
+          echo "deploy_history.txt does not exist."
+          echo "Setting LAST_INSTANCE to default: 2"
           echo "LAST_INSTANCE=2" >> $GITHUB_ENV
-          ls -la # 현재 디렉토리의 모든 파일 목록 출력
         fi
+
 
     - name: Set target instance and keys
       run: |
@@ -160,8 +160,12 @@ jobs:
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
 
-    - name: Update deploy history
-      run: echo "A=$TARGET_INSTANCE" > deploy_history.txt
+    - name: Create directory and update deploy history
+      run: |
+        mkdir -p deploy_history
+        echo "A=$TARGET_INSTANCE" > deploy_history/deploy_history.txt
 
-    - name: Display the contents of deploy_history.txt
-      run: cat deploy_history.txt
+
+    - name: Read deploy history
+      run: cat deploy_history/deploy_history.txt
+      
