@@ -62,8 +62,10 @@ jobs:
       run: |
         if [ -f last_instance.txt ]; then
           echo "LAST_INSTANCE=$(cat last_instance.txt)" >> $GITHUB_ENV
+          echo "if condition executed: last_instance.txt exists"
         else
           echo "LAST_INSTANCE=2" >> $GITHUB_ENV
+          echo "else condition executed: last_instance.txt does not exist"
         fi
         echo "$TARGET_INSTANCE" > last_instance.txt
 
