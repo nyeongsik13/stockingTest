@@ -57,18 +57,19 @@ jobs:
           --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
         docker push $IMAGE_URI
 
-    - name: Check if deploy_history.txt exists
+    - name: Store last instance as artifact  
+      uses: actions/upload-artifact@v3
+      with:
+        name: last-instance
+        path: last-instance.txt
+
+    - name: Set last instance value
       run: |
-        if [ -f deploy_history/deploy_history.txt ]; then
-          echo "deploy_history.txt exists."
-          LAST_INSTANCE=$(grep 'A=' deploy_history/deploy_history.txt | cut -d '=' -f2)
-          echo "LAST_INSTANCE found: $LAST_INSTANCE"
-          echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
-        else
-          echo "deploy_history.txt does not exist."
-          echo "Setting LAST_INSTANCE to default: 2"
-          echo "LAST_INSTANCE=2" >> $GITHUB_ENV
+        LAST_INSTANCE=2 # Default value
+        if [ "${{ hashFiles('last-instance.txt') }}" != "" ]; then
+          LAST_INSTANCE=$(cat last-instance.txt)
         fi
+        echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
 
 
     - name: Set target instance and keys
@@ -106,6 +107,16 @@ jobs:
                 echo "Health check failed. Rolling back..."
                 fi
 
+    - name: Update last instance after blue deployment
+      if: env.TARGET_INSTANCE == '1'  
+      run: |
+        LAST_INSTANCE=1
+        TARGET_INSTANCE=2
+        echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
+        echo "TARGET_INSTANCE=$TARGET_INSTANCE" >> $GITHUB_ENV
+        echo "$LAST_INSTANCE" > last-instance.txt
+
+
     - name: Deploy to Green environment
       if: env.TARGET_INSTANCE == '2'
       uses: appleboy/ssh-action@master
@@ -132,6 +143,15 @@ jobs:
                 else
                 echo "Health check failed. Rolling back..."
                 fi
+
+    - name: Update last instance after green deployment 
+      if: env.TARGET_INSTANCE == '2'
+      run: |
+        LAST_INSTANCE=2
+        TARGET_INSTANCE=1
+        echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
+        echo "TARGET_INSTANCE=$TARGET_INSTANCE" >> $GITHUB_ENV
+        echo "$LAST_INSTANCE" > last-instance.txt            
 
 
     - name: Stop and remove the old environment in old instance
@@ -160,12 +180,7 @@ jobs:
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
 
-    - name: Create directory and update deploy history
-      run: |
-        mkdir -p deploy_history
-        echo "A=$TARGET_INSTANCE" > deploy_history/deploy_history.txt
-
 
     - name: Read deploy history
-      run: cat deploy_history/deploy_history.txt
+      run: cat last-instance/last-instance.txt
       
