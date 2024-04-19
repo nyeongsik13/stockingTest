@@ -74,9 +74,6 @@ jobs:
             echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
           fi
 
-    - name: Create deploy history file
-      run: echo "1" > deploy_history.txt    
-
     - name: Deploy to Blue environment
       if: env.TARGET_INSTANCE == '1'
       uses: appleboy/ssh-action@master
@@ -103,6 +100,10 @@ jobs:
                 else
                 echo "Health check failed. Rolling back..."
                 fi
+
+    - name: Update deploy history after blue deployment
+      if: env.TARGET_INSTANCE == '1'
+      run: echo '1' > deploy_history.txt
 
     - name: Deploy to Green environment
       if: env.TARGET_INSTANCE == '2'
@@ -131,6 +132,10 @@ jobs:
                 echo "Health check failed. Rolling back..."
                 fi
 
+    - name: Update deploy history after green deployment
+      if: env.TARGET_INSTANCE == '2'
+      run: echo '2' > deploy_history.txt
+
     - name: Stop and remove the old environment in old instance
       if: env.TARGET_INSTANCE == '1'
       uses: appleboy/ssh-action@master
@@ -156,13 +161,6 @@ jobs:
                     OLD_CONTAINER_NAME="my-app-blue"
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
-
-
-    - name: Update deploy history
-      run: echo $TARGET_INSTANCE > deploy_history.txt
- 
-    - name: List files in the current directory
-      run: ls -la
 
     - name: Display the contents of deploy_history.txt
       run: cat deploy_history.txt
