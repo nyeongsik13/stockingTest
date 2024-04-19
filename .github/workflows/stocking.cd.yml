@@ -69,34 +69,54 @@ jobs:
     - name: Set target instance and keys
       run: |
           if [ "$LAST_INSTANCE" == "1" ]; then
-            TARGET_INSTANCE=2
-            REMOTE_PRIVATE_KEY=${{ secrets.REMOTE_PRIVATE_KEY2 }}
-            PUBLIC_IP=${{ secrets.PUBLICIP2 }}
+            echo "TARGET_INSTANCE=2" >> $GITHUB_ENV
           else
-            TARGET_INSTANCE=1
-            REMOTE_PRIVATE_KEY=${{ secrets.REMOTE_PRIVATE_KEY1 }}
-            PUBLIC_IP=${{ secrets.PUBLICIP1 }}
+            echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
           fi
-          echo "TARGET_INSTANCE=$TARGET_INSTANCE" >> $GITHUB_ENV
-          echo "REMOTE_PRIVATE_KEY=$REMOTE_PRIVATE_KEY" >> $GITHUB_ENV
-          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
-
 
     - name: Create deploy history file
       run: echo "1" > deploy_history.txt    
 
     - name: Deploy to Blue or Green environment
+      if: env.TARGET_INSTANCE == '1'
       uses: appleboy/ssh-action@master
       with:
-            key: ${{ env.REMOTE_PRIVATE_KEY }}
-            host: ${{ env.PUBLIC_IP }}
+            key: ${{ secrets.REMOTE_PRIVATE_KEY1 }}
+            host: ${{ secrets.PUBLICIP1 }}
             username: ${{ secrets.EC2USER }}
             port: 22
             script: |
                 echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
                 docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
 
-                CONTAINER_NAME="my-app-${TARGET_INSTANCE == '1' ? 'blue' : 'green'}"
+                CONTAINER_NAME="my-app-blue"
+                
+                docker run -d --name my-app-$CONTAINER_NAME  -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+    
+                sleep 30s # Wait for the new environment to start
+                
+                # Health check on new environment
+                HEALTH_CHECK_RESULT=$(curl -s http://localhost:3000/)
+    
+                if [[ "$HEALTH_CHECK_RESULT" == *"<h1>Stocking 111!!</h1>"* ]]; then
+                sudo systemctl restart nginx
+                else
+                echo "Health check failed. Rolling back..."
+                fi
+
+    - name: Deploy to Blue or Green environment
+      if: env.TARGET_INSTANCE == '2'
+      uses: appleboy/ssh-action@master
+      with:
+            key: ${{ secrets.REMOTE_PRIVATE_KEY2 }}
+            host: ${{ secrets.PUBLICIP2 }}
+            username: ${{ secrets.EC2USER }}
+            port: 22
+            script: |
+                echo $(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) | docker login -u AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+                docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
+
+                CONTAINER_NAME="my-app-green"
                 
                 docker run -d --name my-app-$CONTAINER_NAME  -p 3000:3000 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/test:latest
     
