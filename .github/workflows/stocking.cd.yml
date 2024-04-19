@@ -160,3 +160,6 @@ jobs:
 
     - name: Update deploy history
       run: echo $TARGET_INSTANCE > deploy_history.txt
+ 
+    - name: List files in the current directory
+      run: ls -la
