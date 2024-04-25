@@ -57,50 +57,28 @@ jobs:
           --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" .
         docker push $IMAGE_URI
 
-    - name: Read last instance from file
-      id: last_instance
+    - name: Check health of Blue environment
+      id: health-check-blue
       run: |
-        if [ -f last_instance.txt ]; then
-          echo "LAST_INSTANCE=$(cat last_instance.txt)" >> $GITHUB_ENV
-          echo "if condition executed: last_instance.txt exists"
-        else
-          echo "LAST_INSTANCE=2" >> $GITHUB_ENV
-          echo "else condition executed: last_instance.txt does not exist"
-        fi
-        echo "$TARGET_INSTANCE" > last_instance.txt
+          HEALTH_BLUE=$(curl -s --max-time 10 http://${{ secrets.PUBLICIP1 }}/health || echo "unhealthy")
+          echo "HEALTH_BLUE=$HEALTH_BLUE" >> $GITHUB_ENV
 
-
-    # - name: Check if deploy_history.txt exists
-    #   run: |
-    #     if [ -f deploy_history/deploy_history.txt ]; then
-    #       echo "deploy_history.txt exists."
-    #       LAST_INSTANCE=$(grep 'A=' deploy_history/deploy_history.txt | cut -d '=' -f2)
-    #       echo "LAST_INSTANCE found: $LAST_INSTANCE"
-    #       echo "LAST_INSTANCE=$LAST_INSTANCE" >> $GITHUB_ENV
-    #     else
-    #       echo "deploy_history.txt does not exist."
-    #       echo "Setting LAST_INSTANCE to default: 2"
-    #       echo "LAST_INSTANCE=2" >> $GITHUB_ENV
-    #     fi
-
-
-    - name: Commit last instance
+    - name: Check health of Green environment
+      id: health-check-green
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add last_instance.txt
-        git commit -m "Update last instance value"
-        git push
+          HEALTH_GREEN=$(curl -s --max-time 10 http://${{ secrets.PUBLICIP2 }}/health || echo "unhealthy")
+          echo "HEALTH_GREEN=$HEALTH_GREEN" >> $GITHUB_ENV
 
-
-    - name: Set target instance and keys
+    - name: Determine target instance
       run: |
-          if [ "$LAST_INSTANCE" == "1" ]; then
+          if [[ "$HEALTH_BLUE" == "OK" && "$HEALTH_GREEN" != "OK" ]]; then
             echo "TARGET_INSTANCE=2" >> $GITHUB_ENV
-          else
+          elif [[ "$HEALTH_GREEN" == "OK" && "$HEALTH_BLUE" != "OK" ]]; then
             echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
-          fi
-
+          else
+            echo "TARGET_INSTANCE=1" >> $GITHUB_ENV  # 기본값으로 블루 인스턴스 시작
+          echo "블루 상태: $HEALTH_BLUE, 그린 상태: $HEALTH_GREEN"
+        
     - name: Deploy to Blue environment
       if: env.TARGET_INSTANCE == '1'
       uses: appleboy/ssh-action@master
@@ -181,19 +159,3 @@ jobs:
                     OLD_CONTAINER_NAME="my-app-blue"
                     docker stop $OLD_CONTAINER_NAME || true
                     docker rm $OLD_CONTAINER_NAME || true
-
-    # - name: Create directory and update deploy history
-    #   run: |
-    #     mkdir -p deploy_history
-    #     echo "A=$TARGET_INSTANCE" > deploy_history/deploy_history.txt
-
- 
-    # - name: Read deploy history
-    #   run: cat deploy_history/deploy_history.txt
-      
-
-    - name: Upload last instance artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: last-instance
-        path: last-instance.txt
