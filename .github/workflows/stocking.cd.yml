@@ -62,12 +62,15 @@ jobs:
       run: |
           HEALTH_BLUE=$(curl -s --max-time 10 http://${{ secrets.PUBLICIP1 }}/health || echo "unhealthy")
           echo "HEALTH_BLUE=$HEALTH_BLUE" >> $GITHUB_ENV
+          echo "Blue environment health: $HEALTH_BLUE"
 
     - name: Check health of Green environment
       id: health-check-green
       run: |
           HEALTH_GREEN=$(curl -s --max-time 10 http://${{ secrets.PUBLICIP2 }}/health || echo "unhealthy")
           echo "HEALTH_GREEN=$HEALTH_GREEN" >> $GITHUB_ENV
+          echo "Green environment health: $HEALTH_GREEN"
+
 
     - name: Determine target instance
       run: |
