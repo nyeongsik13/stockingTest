@@ -77,7 +77,7 @@ jobs:
           if [[ "$HEALTH_BLUE" == "OK" && "$HEALTH_GREEN" != "OK" ]]; then
             echo "TARGET_INSTANCE=2" >> $GITHUB_ENV
           elif [[ "$HEALTH_GREEN" == "OK" && "$HEALTH_BLUE" != "OK" ]]; then
-            echo "TARGET_INSTANCE=1" >> $GITHUB_ENVs
+            echo "TARGET_INSTANCE=1" >> $GITHUB_ENV
           else
             echo "TARGET_INSTANCE=1" >> $GITHUB_ENV  # 기본값으로 블루 인스턴스 시작
           fi
