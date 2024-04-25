@@ -155,8 +155,8 @@ jobs:
       if: env.TARGET_INSTANCE == '2'
       uses: appleboy/ssh-action@master
       with:
-                key: ${{ secrets.REMOTE_PRIVATE_KEY }}
-                host: ${{ secrets.PUBLICIP }}
+                key: ${{ secrets.REMOTE_PRIVATE_KEY1 }}
+                host: ${{ secrets.PUBLICIP1 }}
                 username: ${{ secrets.EC2USER }}
                 port: 22
                 script: |
